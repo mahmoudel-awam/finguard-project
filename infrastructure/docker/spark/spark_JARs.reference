@@ -1,0 +1,35 @@
+# docker/spark/Dockerfile
+# FinGuard Custom Spark Image — مع كل الـ JARs المطلوبة
+
+FROM apache/spark:3.5.1
+
+USER root
+
+# ─── تحديد إصدارات الـ JARs (اللي اختبرناها مع Spark 3.5.1) ───
+ENV SPARK_KAFKA_JAR=spark-sql-kafka-0-10_2.12-3.5.1.jar
+ENV KAFKA_CLIENT_JAR=kafka-clients-3.4.0.jar
+ENV HADOOP_AWS_JAR=hadoop-aws-3.3.6.jar
+ENV AWS_SDK_JAR=aws-java-sdk-bundle-1.12.367.jar
+ENV HBASE_SPARK_JAR=hbase-spark-1.0.1.jar
+ENV SPARK_TOKEN_JAR=spark-token-provider-kafka-0-10_2.12-3.5.1.jar
+ENV COMMONS_POOL_JAR=commons-pool2-2.11.1.jar
+
+WORKDIR /opt/spark/extra-jars
+
+# ─── تحميل الـ JARs من Maven Central ───
+RUN curl -O https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.1/${SPARK_KAFKA_JAR} && \
+    curl -O https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.4.0/${KAFKA_CLIENT_JAR} && \
+    curl -O https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.6/${HADOOP_AWS_JAR} && \
+    curl -O https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.367/${AWS_SDK_JAR} && \
+    curl -O https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.11.1/${COMMONS_POOL_JAR} && \
+    curl -O https://repo1.maven.org/maven2/org/apache/spark/spark-tokecdn-provider-kafka-0-10_2.12/3.5.1/${SPARK_TOKEN_JAR}
+
+# ─── Python packages ───
+RUN pip install --no-cache-dir \
+    confluent-kafka==2.3.0 \
+    happybase==1.2.0 \
+    prometheus-client==0.20.0 \
+    great-expectations==0.18.8 \
+    pandas==2.1.4
+
+USER spark

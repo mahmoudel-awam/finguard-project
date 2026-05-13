@@ -1,0 +1,190 @@
+services:
+
+  # -------------------------
+  # ZOOKEEPER
+  # -------------------------
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+
+  # -------------------------
+  # KAFKA
+  # -------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+
+  # -------------------------
+  # SCHEMA REGISTRY
+  # -------------------------
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: schema-registry
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    depends_on:
+      - kafka
+
+  # -------------------------
+  # SPARK
+  # -------------------------
+  spark-master:
+    image: apache/spark:3.5.1
+    container_name: spark-master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    entrypoint: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+
+  spark-worker:
+    image: apache/spark:3.5.1
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    entrypoint: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+
+  # -------------------------
+  # HDFS (NameNode + DataNode)
+  # -------------------------
+  namenode:
+    image: apache/hadoop:3.3.6
+    container_name: namenode
+    hostname: namenode
+    ports:
+      - "9870:9870"
+      - "8020:8020"
+    environment:
+      - CORE-SITE.XML_fs.defaultFS=hdfs://namenode:8020
+      - HDFS-SITE.XML_dfs.namenode.rpc-address=namenode:8020
+      - HADOOP_HOME=/opt/hadoop
+    command: 
+      bash -c "if [ ! -d /hadoop/dfs/name/current ]; then
+        /opt/hadoop/bin/hdfs namenode -format -force;
+      fi; /opt/hadoop/bin/hdfs namenode"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    deploy:
+      resources:
+        limits:
+          memory: 4g # زودت الرام هنا عشان الـ NameNode ميفصلش
+   
+
+  datanode:
+    image: apache/hadoop:3.3.6
+    container_name: datanode
+    hostname: datanode
+    ports:
+      - "9864:9864"
+    environment:
+      - CORE-SITE.XML_fs.defaultFS=hdfs://namenode:8020
+      - HADOOP_HOME=/opt/hadoop
+    command: /opt/hadoop/bin/hdfs datanode
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    depends_on:
+      - namenode
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+
+  # -------------------------
+  # HBASE
+  # -------------------------
+  hbase:
+    image: harisekhon/hbase
+    container_name: hbase
+    ports:
+      - "16000:16000"
+      - "16010:16010"
+      - "16020:16020"
+      - "9090:9090"
+    depends_on:
+      - zookeeper
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # -------------------------
+  # HIVE
+  # -------------------------
+  hive:
+    image: apache/hive:3.1.3
+    container_name: hive
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    environment:
+      - SERVICE_NAME=hiveserver2
+      - HIVE_METASTORE_DB_TYPE=derby
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+   
+
+  # -------------------------
+  # AIRFLOW
+  # -------------------------
+  airflow:
+    image: apache/airflow:2.8.1
+    container_name: airflow
+    ports:
+      - "8088:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - _AIRFLOW_DB_MIGRATE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+    volumes:
+      - airflow-db:/opt/airflow
+      - ./dags:/opt/airflow/dags
+    command: bash -c "airflow webserver & airflow scheduler"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # -------------------------
+  # PROMETHEUS (Monitoring)
+  # -------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          
+
+volumes:
+  airflow-db:
+  hadoop_namenode:
+  hadoop_datanode:
+
+  
