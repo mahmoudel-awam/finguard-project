@@ -7,14 +7,14 @@ docker-compose up -d hbase hive airflow
 powershelldocker ps
 المفروض تشوف 8 containers:
 
-✅ zookeeper
-✅ kafka
-✅ schema-registry
-✅ spark-master
-✅ spark-worker
-✅ hbase
-✅ hive
-✅ airflow
+ zookeeper
+ kafka
+ schema-registry
+ spark-master
+ spark-worker
+ hbase
+ hive
+ airflow
 
 -------------------------------
 المرحلة 2: إعداد Kafka
