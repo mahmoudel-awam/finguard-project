@@ -123,10 +123,10 @@ services:
     environment:
       - SPARK_EXTRA_CLASSPATH=/opt/spark/extra-jars/*
     volumes:
-      - ./spark-apps:/opt/spark/apps
-      - ./spark-logs:/opt/spark/logs
-      - ./checkpoints:/opt/spark/checkpoints
-    networks:
+     - ../processing:/opt/spark/apps
+     - ../spark-logs:/opt/spark/logs
+     - ../checkpoints:/opt/spark/checkpoints
+        networks:
       - finguard-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080"]
@@ -145,9 +145,9 @@ services:
       - SPARK_WORKER_CORES=2
       - SPARK_EXTRA_CLASSPATH=/opt/spark/extra-jars/*
     volumes:
-      - ./spark-apps:/opt/spark/apps
-      - ./spark-logs:/opt/spark/logs
-      - ./checkpoints:/opt/spark/checkpoints
+      - ../processing:/opt/spark/apps
+      - ../spark-logs:/opt/spark/logs
+      - ../checkpoints:/opt/spark/checkpoints
     depends_on:
       spark-master:
         condition: service_healthy
@@ -309,18 +309,18 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
-      # ✅ واحدة بس — PostgreSQL
+      #  واحدة بس — PostgreSQL
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       - AIRFLOW_CONN_POSTGRES_DEFAULT=postgresql://airflow:airflow@postgres:5432/airflow
       - AIRFLOW__WEBSERVER__SECRET_KEY=finguard_airflow_secret_2026
       - AIRFLOW__WEBSERVER__WEB_SERVER_PORT=8080
     depends_on:
-      postgres:               # ✅ لازم يستنى الـ DB
+      postgres:               #  لازم يستنى الـ DB
         condition: service_healthy
     volumes:
       - airflow-db:/opt/airflow
-      - ./dags:/opt/airflow/dags
-      - ./spark-apps:/opt/airflow/spark-apps
+      - ../orchestration/dags:/opt/airflow/dags
+      - ../processing:/opt/spark/apps
     command: >
       bash -c "
         airflow db migrate &&
