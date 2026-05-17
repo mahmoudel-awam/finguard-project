@@ -3,6 +3,8 @@
 > A production-grade streaming data pipeline that detects financial fraud in real time,
 > built on the modern Big Data stack and fully containerised with Docker Compose.
 
+
+
 ---
 
 ## Architecture Overview
@@ -11,6 +13,17 @@ Transaction Producer → Kafka → ┬→ Spark Structured Streaming → Console
 ├→ Hive Consumer  (Data Warehouse)
 └→ PostgreSQL Consumer (Relational)
 Airflow orchestrates health checks and reporting every 5 minutes.
+
+---
+
+## System Architecture
+
+![FinGuard System Architecture](dashboard/architecture.png)
+
+
+
+---
+
 
 ## Tech Stack
 
@@ -23,6 +36,21 @@ Airflow orchestrates health checks and reporting every 5 minutes.
 | Storage (Relational) | PostgreSQL 15 | Structured fraud alerts |
 | Orchestration | Apache Airflow 2.8.1 | Pipeline automation & monitoring |
 | Infrastructure | Docker Compose | One-command deployment |
+
+
+---
+
+
+## Dashboard Preview
+
+![FinGuard Fraud Detection Dashboard](dashboard/dashboard.png)
+
+> Real-time fraud detection dashboard built with Power BI, connected directly 
+> to the PostgreSQL `finguard` database. Shows live transaction counts, 
+> fraud distribution, and high-risk country analysis.
+
+
+----
 
 ## Quick Start
 
