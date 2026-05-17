@@ -143,7 +143,7 @@ docs/               Architecture diagram · dashboard screenshot · setup guide
 
 ## Author
 
-**Mahmoud Ramdan** — Aspiring Data Engineering 
+**Mahmoud Ramdan** — Aspiring Data Engineer
 
 Capstone project demonstrating end-to-end real-time pipeline design
 following the Medallion Architecture pattern.
