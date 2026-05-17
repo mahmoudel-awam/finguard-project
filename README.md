@@ -3,54 +3,65 @@
 > A production-grade streaming data pipeline that detects financial fraud in real time,
 > built on the modern Big Data stack and fully containerised with Docker Compose.
 
-
-
----
-
-## Architecture Overview
-Transaction Producer → Kafka → ┬→ Spark Structured Streaming → Console/HBase
-├→ HBase Consumer (NoSQL)
-├→ Hive Consumer  (Data Warehouse)
-└→ PostgreSQL Consumer (Relational)
-Airflow orchestrates health checks and reporting every 5 minutes.
-
----
-
-## System Architecture
-
 ![FinGuard System Architecture](dashboard/architecture.png)
 
-
-
 ---
 
+## Architecture — Medallion Pattern
 
-## Tech Stack
+FinGuard follows the **Medallion Architecture** — a data design pattern that organises 
+data into three progressive layers, each adding more structure and business value.
 
-| Layer | Technology | Purpose |
+### 🥉 Bronze Layer — Raw Ingestion
+> Raw data as-is from the source. No transformations, no filtering.
+
+| Component | Technology | Role |
 |---|---|---|
-| Ingestion | Apache Kafka 7.5 | Real-time transaction message bus |
-| Processing | Apache Spark 3.5.1 | Distributed fraud classification |
-| Storage (NoSQL) | Apache HBase 1.4 | Low-latency columnar storage |
-| Storage (Warehouse) | Apache Hive 3.1.3 | Batch analytics on HDFS |
-| Storage (Relational) | PostgreSQL 15 | Structured fraud alerts |
-| Orchestration | Apache Airflow 2.8.1 | Pipeline automation & monitoring |
-| Infrastructure | Docker Compose | One-command deployment |
+| Message Bus | Apache Kafka | Receives 1 transaction/sec on `transactions_topic` |
+| Producer | Python | Generates synthetic Egyptian bank transactions |
+| Schema Validation | Schema Registry | Enforces message format at ingest time |
+| Coordination | Apache Zookeeper | Manages Kafka cluster membership |
 
+### 🥈 Silver Layer — Processed & Enriched
+> Cleaned, validated, and fraud-classified data ready for storage.
+
+| Component | Technology | Role |
+|---|---|---|
+| Stream Processor | Apache Spark 3.5.1 | Reads Kafka stream, applies fraud rules |
+| Detection Engine | fraud_detector.py | Classifies every transaction in real time |
+| Trigger | every 5 seconds | Micro-batch processing window |
+
+**Fraud Detection Rules (evaluated in priority order):**
+
+| Priority | Condition | Classification |
+|---|---|---|
+| 1 | Amount > 50,000 EGP | MONEY LAUNDERING |
+| 2 | Type = fraud | FRAUD DETECTED |
+| 3 | Type = money_laundering | MONEY LAUNDERING |
+| 4 | Type = suspicious | SUSPICIOUS |
+| 5 | Receiver: Russia / Nigeria | HIGH RISK COUNTRY |
+| 6 | All others | NORMAL |
+
+### 🥇 Gold Layer — Analytics-Ready
+> Aggregated, business-ready data for consumption and reporting.
+
+| Component | Technology | Role |
+|---|---|---|
+| Relational Store | PostgreSQL | 5-table schema · fraud_alerts · daily_summary |
+| Data Warehouse | Apache Hive | Batch analytics on HDFS · TEXTFILE format |
+| NoSQL Store | Apache HBase | Low-latency lookups · CF: info · CF: alert |
+| Dashboard | Power BI | Executive fraud detection dashboard |
 
 ---
-
 
 ## Dashboard Preview
 
 ![FinGuard Fraud Detection Dashboard](dashboard/dashboard.png)
 
-> Real-time fraud detection dashboard built with Power BI, connected directly 
-> to the PostgreSQL `finguard` database. Shows live transaction counts, 
-> fraud distribution, and high-risk country analysis.
+> Connected directly to PostgreSQL `finguard` database. Shows live transaction counts,
+> fraud type distribution, high-risk country analysis, and bank-level breakdown.
 
-
-----
+---
 
 ## Quick Start
 
@@ -60,62 +71,79 @@ cd finguard-project/infrastructure
 docker-compose up -d
 ```
 
-Wait ~60 seconds for all containers to become healthy, then:
+Wait ~60 seconds, then:
 
 ```bash
-# Terminal 1 — start the transaction producer
+# Start the transaction producer
 python ingestion/transaction_producer.py
 
-# Terminal 2 — start the Spark fraud detector
+# Submit the Spark fraud detector
 docker exec -it finguard-spark-master spark-submit \
   --master spark://spark-master:7077 \
-  --jars /opt/spark/extra-jars/spark-sql-kafka-0-10_2.12-3.5.1.jar \
   /opt/spark/apps/fraud_detector.py
-
-# Terminal 3 — start the PostgreSQL consumer
-python consumers/consumer.py
 ```
 
-## Fraud Detection Rules
+---
 
-| Priority | Condition | Classification |
+## Tech Stack
+
+| Layer | Technology | Version |
 |---|---|---|
-| 1 | Amount > 50,000 EGP | MONEY LAUNDERING |
-| 2 | Type = fraud | FRAUD DETECTED |
-| 3 | Type = money_laundering | MONEY LAUNDERING |
-| 4 | Type = suspicious | SUSPICIOUS |
-| 5 | Receiver country: Russia / Nigeria | HIGH RISK COUNTRY |
-| 6 | All others | NORMAL |
+| Ingestion | Apache Kafka | 7.5 |
+| Processing | Apache Spark | 3.5.1 |
+| Storage (NoSQL) | Apache HBase | 1.4 |
+| Storage (DW) | Apache Hive | 3.1.3 |
+| Storage (Relational) | PostgreSQL | 15 |
+| Orchestration | Apache Airflow | 2.8.1 |
+| Visualisation | Power BI | Desktop |
+| Infrastructure | Docker Compose | 12 services |
 
-> Rules are evaluated in priority order — first match wins.
+---
 
 ## Project Structure
-ingestion/          Kafka producer — synthetic Egyptian bank transactions
-with weighted risk distribution (70% normal, 5% laundering)
-processing/         Spark Structured Streaming jobs — core detection engine
-reads from Kafka, classifies every transaction in real time
-consumers/          Three independent Kafka consumers writing to different backends
-each with its own group_id — zero interference between them
-orchestration/      Airflow DAGs — health checks, reporting, schema initialisation
-pipeline runs every 5 minutes with automatic retry on failure
-infrastructure/     Docker Compose (12 services, 1 bridge network: finguard-net)
-Custom Spark image with pre-loaded Kafka JARs from Maven Central
-docs/               Setup guide and architecture screenshots
+
+```
+ingestion/          Kafka producer — weighted risk distribution
+                    70% Normal · 15% Suspicious · 10% Fraud · 5% Laundering
+
+processing/         Spark Structured Streaming — core detection engine
+                    readStream → from_json → withColumn alert → writeStream
+
+consumers/          3 independent Kafka consumers (different group_ids)
+                    PostgreSQL · HBase · Hive — zero interference
+
+orchestration/      Airflow DAGs — health checks every 5 min
+                    check_kafka >> generate_report · retries: 1
+
+infrastructure/     Docker Compose — 12 services · finguard-net bridge
+                    Custom Spark image with pre-loaded Kafka JARs
+
+sql/                PostgreSQL schema — 5 tables with indexes and seed data
+                    transactions · fraud_alerts · audit_log · 
+                    high_risk_countries · daily_summary
+
+docs/               Architecture diagram · dashboard screenshot · setup guide
+```
+
+---
 
 ## Services & Ports
 
-| Service | Port | UI |
+| Service | External Port | UI |
 |---|---|---|
-| Kafka (external) | 29092 | — |
-| Kafka (internal) | 9092 | — |
+| Kafka | 29092 | — |
 | Spark Master | 7077 | localhost:8080 |
 | HBase Thrift | 9090 | localhost:16010 |
 | Hive JDBC | 10000 | localhost:10002 |
-| Airflow | — | localhost:8088 |
-| HDFS NameNode | — | localhost:9870 |
+| Airflow | 8088 | localhost:8088 |
+| HDFS NameNode | 9870 | localhost:9870 |
 | PostgreSQL | 5432 | — |
+
+---
 
 ## Author
 
-**Mahmoud Ramdan** — Aspiring Data Engineering   
-Built as a capstone project demonstrating end-to-end real-time data pipeline design.
+**Mahmoud Ramdan** — Aspiring Data Engineering 
+
+Capstone project demonstrating end-to-end real-time pipeline design
+following the Medallion Architecture pattern.
