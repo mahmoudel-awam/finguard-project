@@ -42,7 +42,7 @@ data into three progressive layers, each adding more structure and business valu
 | 5 | Receiver: Russia / Nigeria | HIGH RISK COUNTRY |
 | 6 | All others | NORMAL |
 
-### 🥇 Gold Layer — Analytics-Ready
+### 🥇 Golden Layer — Analytics-Ready
 > Aggregated, business-ready data for consumption and reporting.
 
 | Component | Technology | Role |
